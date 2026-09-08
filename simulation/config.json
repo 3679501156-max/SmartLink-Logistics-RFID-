@@ -1,0 +1,12 @@
+{
+  "server": {
+    "ip": "192.168.0.160",
+    "port": 4001
+  },
+  "database": {
+    "filename": "orienteering.db"
+  },
+  "system": {
+    "polling_interval": 0.3
+  }
+}

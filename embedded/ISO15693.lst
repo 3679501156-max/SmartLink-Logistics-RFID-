@@ -1,0 +1,743 @@
+C51 COMPILER V9.00   ISO15693                                                              06/07/2017 15:27:12 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE ISO15693
+OBJECT MODULE PLACED IN .\out\ISO15693.obj
+COMPILER INVOKED BY: D:\Keil C51\C51\BIN\C51.EXE src\ISO15693.C BROWSE INCDIR(.\inc) DEBUG OBJECTEXTEND PRINT(.\ISO15693
+                    -.lst) OBJECT(.\out\ISO15693.obj)
+
+line level    source
+
+   1          //#include <reg52.h>
+   2          #include <STC12C5A60S2.h>
+   3          #include <string.h>
+   4          #include "main.h"
+   5          #include "slrc632.h"
+   6          #include "iso15693.h" 
+   7          #include "delay.h"
+   8          
+   9          extern struct TranSciveBuffer{unsigned char MfCommand;
+  10                                        unsigned int  MfLength;
+  11                                        unsigned char MfData[64];
+  12                                       };
+  13          
+  14          //ËùÓÐº¯ÊýµÄ²ÎÊý²Î¼ûISO15693-3/10.3
+  15          //·µ»ØÊý¾ÝÔÚ´æÈërespÊ±È¥µôÁËflag×Ö½Ú
+  16          //µ±¸ÄÐ´¿¨Æ¬ÉÏÊý¾ÝÊ±£¨write or lock)Èç²Ù×÷µÄÊÇTI¿¨Æ¬ÉèflagsµÄbit6 Option_flag = 1£¬Èç²Ù×÷µÄÊÇI.CODE SLI¿¨Æ
+  17          
+  18          /////////////////////////////////////////////////////////////////////
+  19          //ISO15693 INVENTORY
+  20          /////////////////////////////////////////////////////////////////////                           
+  21          char ISO15693_Inventory (unsigned char flags,
+  22                                   unsigned char AFI, 
+  23                                   unsigned char masklengh, 
+  24                                   unsigned char *uid, 
+  25                                   unsigned char *resp)
+  26          {
+  27   1          unsigned char SndCNT, cnt, status;
+  28   1          struct TranSciveBuffer MfComData;
+  29   1          struct TranSciveBuffer *pi;
+  30   1          pi = &MfComData;
+  31   1              
+  32   1          ClearBitMask(RegCoderControl, 0x80);
+  33   1                  
+  34   1          MfComData.MfCommand = PCD_TRANSCEIVE;       
+  35   1          MfComData.MfData[0] = flags;
+  36   1          MfComData.MfData[1] = ISO15693_INVENTORY;
+  37   1          SndCNT = 2;
+  38   1          if (flags & 0x10)
+  39   1          {
+  40   2              MfComData.MfData[SndCNT] = AFI;         
+  41   2              SndCNT++;
+  42   2          }
+  43   1          MfComData.MfData[SndCNT] = masklengh;
+  44   1          SndCNT++;
+  45   1          if (masklengh%8)
+  46   1          {    cnt = masklengh/8 + 1;    }
+  47   1          else
+  48   1          {    cnt = masklengh/8;        }
+  49   1          if (cnt)
+  50   1          {    memcpy(&MfComData.MfData[SndCNT], uid, cnt);    }
+  51   1          MfComData.MfLength  = cnt + SndCNT;
+  52   1      
+  53   1          status = ISO15693_Transceive(pi);
+  54   1         
+C51 COMPILER V9.00   ISO15693                                                              06/07/2017 15:27:12 PAGE 2   
+
+  55   1          if (status == MI_OK)
+  56   1          {
+  57   2              if (MfComData.MfLength != 0x50)
+  58   2              {    status = MI_BITCOUNTERR;    }
+  59   2              else
+  60   2              {    memcpy(resp, &MfComData.MfData[1], 9);    }
+  61   2          }     
+  62   1          return status;
+  63   1      }
+  64          
+  65          /////////////////////////////////////////////////////////////////////
+  66          //ISO15693 INVENTORY_16
+  67          /////////////////////////////////////////////////////////////////////                           
+  68          char ISO15693_Inventory16(unsigned char flags,
+  69                                    unsigned char AFI, 
+  70                                    unsigned char masklengh, 
+  71                                    unsigned char *uid, 
+  72                                    unsigned char *resplen, 
+  73                                    unsigned char *resp)
+  74          {
+  75   1          unsigned char idata SndCNT, cnt, status, status1, i,j;
+  76   1          struct TranSciveBuffer MfComData;
+  77   1          struct TranSciveBuffer *pi;
+  78   1          pi = &MfComData;
+  79   1          status = MI_COM_ERR;
+  80   1          *resplen = 0;
+  81   1          SetBitMask(RegChannelRedundancy, 0x04);   
+  82   1          ClearBitMask(RegCoderControl, 0x80);
+  83   1          
+  84   1                      
+  85   1          MfComData.MfCommand = PCD_TRANSMIT; 
+  86   1          MfComData.MfData[0] = flags;
+  87   1          MfComData.MfData[1] = ISO15693_INVENTORY;
+  88   1          SndCNT = 2;
+  89   1          if (flags & 0x10)
+  90   1          {
+  91   2              MfComData.MfData[SndCNT] = AFI;         
+  92   2              SndCNT++;
+  93   2          }
+  94   1          MfComData.MfData[SndCNT] = masklengh;
+  95   1          SndCNT++;
+  96   1          if (masklengh%8)
+  97   1          {    cnt = masklengh/8 + 1;    }
+  98   1          else
+  99   1          {    cnt = masklengh/8;        }
+ 100   1          if (cnt)
+ 101   1          {    memcpy(&MfComData.MfData[SndCNT], uid, cnt);    }
+ 102   1          MfComData.MfLength  = cnt + SndCNT;
+ 103   1      
+ 104   1          status1 = ISO15693_Transceive(pi);
+ 105   1      
+ 106   1          j = 0;
+ 107   1          for (i=0; i<16; i++)
+ 108   1          {
+ 109   2               pi = &MfComData;
+ 110   2               ClearBitMask(RegChannelRedundancy, 0x04);
+ 111   2               SetBitMask(RegCoderControl, 0x80);
+ 112   2               SetBitMask(RegTxControl, 0x10);
+ 113   2               MfComData.MfCommand = PCD_TRANSCEIVE;
+ 114   2               MfComData.MfLength = 0;
+ 115   2      
+ 116   2               status1 = ISO15693_Transceive( pi );
+C51 COMPILER V9.00   ISO15693                                                              06/07/2017 15:27:12 PAGE 3   
+
+ 117   2      
+ 118   2               if ((status1 == MI_OK) && (MfComData.MfLength == 0x50))
+ 119   2               {
+ 120   3                       status = MI_OK;
+ 121   3                               *resplen += 9;
+ 122   3                           memcpy(resp+9*j, &MfComData.MfData[1], 9); 
+ 123   3                   j++;    
+ 124   3               }
+ 125   2               if (*resplen >= 36)
+ 126   2               {   break;    }
+ 127   2              }
+ 128   1              return status;
+ 129   1      }
+ 130          
+ 131          /////////////////////////////////////////////////////////////////////
+ 132          //ISO15693 Stay Quiet
+ 133          /////////////////////////////////////////////////////////////////////
+ 134          char ISO15693_Stay_Quiet(unsigned char flags, unsigned char *uid) 
+ 135          {
+ 136   1          unsigned char status;
+ 137   1          struct TranSciveBuffer MfComData;
+ 138   1          struct TranSciveBuffer *pi;
+ 139   1          pi = &MfComData;
+ 140   1      
+ 141   1          ClearBitMask(RegCoderControl, 0x80);
+ 142   1                  
+ 143   1          MfComData.MfCommand = PCD_TRANSMIT;
+ 144   1          MfComData.MfLength  = 10;
+ 145   1          MfComData.MfData[0] = flags;
+ 146   1          MfComData.MfData[1] = ISO15693_STAY_QUIET;
+ 147   1          memcpy(&MfComData.MfData[2], uid, 8);
+ 148   1      
+ 149   1          status = ISO15693_Transceive(pi);
+ 150   1          return status;
+ 151   1      }
+ 152          
+ 153          /////////////////////////////////////////////////////////////////////
+ 154          //ISO15693_Select 
+ 155          /////////////////////////////////////////////////////////////////////
+ 156          char ISO15693_Select(unsigned char flags, unsigned char *uid) 
+ 157          {
+ 158   1          unsigned char status;
+ 159   1          struct TranSciveBuffer MfComData;
+ 160   1          struct TranSciveBuffer *pi;
+ 161   1          pi = &MfComData;
+ 162   1      
+ 163   1          ClearBitMask(RegCoderControl, 0x80);
+ 164   1          
+ 165   1          MfComData.MfCommand = PCD_TRANSCEIVE;
+ 166   1          MfComData.MfLength  = 10;
+ 167   1          MfComData.MfData[0] = flags;
+ 168   1          MfComData.MfData[1] = ISO15693_SELECT;
+ 169   1          memcpy (&MfComData.MfData[2], uid, 8);
+ 170   1      
+ 171   1          status = ISO15693_Transceive(pi);
+ 172   1              
+ 173   1          if ( (status == MI_OK) && (MfComData.MfLength != 0x08) )
+ 174   1          {    status = MI_BITCOUNTERR;    }
+ 175   1          return status;
+ 176   1      }
+ 177          
+ 178          /////////////////////////////////////////////////////////////////////
+C51 COMPILER V9.00   ISO15693                                                              06/07/2017 15:27:12 PAGE 4   
+
+ 179          //ISO15693_Reset_To_Ready
+ 180          /////////////////////////////////////////////////////////////////////
+ 181          char ISO15693_Reset_To_Ready(unsigned char flags, unsigned char *uid) 
+ 182          {
+ 183   1          unsigned char cnt, status;
+ 184   1          struct TranSciveBuffer MfComData;
+ 185   1          struct TranSciveBuffer *pi;
+ 186   1          pi = &MfComData;
+ 187   1              
+ 188   1          ClearBitMask(RegCoderControl, 0x80);
+ 189   1      
+ 190   1          MfComData.MfCommand = PCD_TRANSCEIVE;
+ 191   1          MfComData.MfData[0] = flags;
+ 192   1          MfComData.MfData[1] = ISO15693_RESET_TO_READY;
+ 193   1          cnt = 2;
+ 194   1          if (flags & 0x20) // flags & 0x20 - Adresflag request flags & 
+ 195   1                                // 0x10 - Selectflag request
+ 196   1          {
+ 197   2              memcpy (&MfComData.MfData[2], uid, 8);
+ 198   2              cnt = cnt + 8;
+ 199   2          }
+ 200   1      
+ 201   1          MfComData.MfLength = cnt;
+ 202   1      
+ 203   1          status = ISO15693_Transceive(pi);
+ 204   1              
+ 205   1          if ( (status == MI_OK) && (MfComData.MfLength != 0x08) )
+ 206   1          {    status = MI_BITCOUNTERR;    }
+ 207   1          return status;
+ 208   1      }
+ 209          
+ 210          /////////////////////////////////////////////////////////////////////
+ 211          //ISO15693_READ Single/Multiple Block(s)
+ 212          /////////////////////////////////////////////////////////////////////
+ 213          char ISO15693_Read_sm (unsigned char flags, 
+ 214                                 unsigned char *uid, 
+ 215                                 unsigned char blnr, 
+ 216                                 unsigned char nbl, 
+ 217                                 unsigned char *resplen, 
+ 218                                 unsigned char *resp)
+ 219          {
+ 220   1          unsigned char idata cnt, status;
+ 221   1          struct TranSciveBuffer MfComData;
+ 222   1          struct TranSciveBuffer *pi;
+ 223   1          pi = &MfComData;
+ 224   1          *resplen = 0;
+ 225   1              
+ 226   1          ClearBitMask(RegCoderControl, 0x80);
+ 227   1              
+ 228   1          if(nbl)
+ 229   1          {    nbl--; }
+ 230   1          MfComData.MfCommand = PCD_TRANSCEIVE;
+ 231   1          MfComData.MfData[0] = flags;
+ 232   1          if (nbl)
+ 233   1          {    MfComData.MfData[1] = ISO15693_READ_MULTIPLE_BLOCKS;    }
+ 234   1          else
+ 235   1          {    MfComData.MfData[1] = ISO15693_READ_SINGLE_BLOCK;       }
+ 236   1          cnt = 2;
+ 237   1          if ((flags & 0x20) && !(flags & 0x10)) // flags & 0x20 - Addressflag 
+ 238   1                                         // request flags & 0x10 - Selectflag request
+ 239   1          {
+ 240   2              memcpy (&MfComData.MfData[cnt], uid, 8);
+C51 COMPILER V9.00   ISO15693                                                              06/07/2017 15:27:12 PAGE 5   
+
+ 241   2              cnt = cnt + 8;
+ 242   2          }
+ 243   1          MfComData.MfData[cnt] = blnr;
+ 244   1          if (nbl)
+ 245   1          {
+ 246   2              cnt++;
+ 247   2              MfComData.MfData[cnt] = nbl;
+ 248   2          }
+ 249   1      
+ 250   1          MfComData.MfLength = cnt + 1;
+ 251   1      
+ 252   1          status = ISO15693_Transceive( pi );
+ 253   1              
+ 254   1          if (status == MI_OK)
+ 255   1          {
+ 256   2              *resplen = MfComData.MfLength/8 - 1;
+ 257   2              memcpy(resp, &MfComData.MfData[1], *resplen);
+ 258   2          }
+ 259   1          return status;
+ 260   1      }
+ 261          
+ 262          /////////////////////////////////////////////////////////////////////
+ 263          //ISO15693_Write Single
+ 264          /////////////////////////////////////////////////////////////////////
+ 265          char ISO15693_Write_sm (unsigned char flags, 
+ 266                                  unsigned char *uid, 
+ 267                                  unsigned char blnr,
+ 268                                          unsigned char *_data)                         
+ 269          {
+ 270   1          char status;
+ 271   1          unsigned char cnt;
+ 272   1          struct TranSciveBuffer MfComData;
+ 273   1          struct TranSciveBuffer *pi;
+ 274   1          pi = &MfComData;
+ 275   1          
+ 276   1          ClearBitMask(RegCoderControl, 0x80);
+ 277   1              
+ 278   1          if (flags & 0x40)
+ 279   1          {    MfComData.MfCommand = PCD_TRANSMIT;   }
+ 280   1          else
+ 281   1          {    MfComData.MfCommand = PCD_TRANSCEIVE;   }
+ 282   1          MfComData.MfData[0] = flags;
+ 283   1          MfComData.MfData[1] = ISO15693_WRITE_SINGLE_BLOCK;      
+ 284   1          cnt = 2;
+ 285   1      
+ 286   1          if (flags & 0x20) 
+ 287   1          {
+ 288   2               memcpy (&MfComData.MfData[2], uid, 8);
+ 289   2               cnt = cnt + 8;
+ 290   2          }
+ 291   1          MfComData.MfData[cnt] = blnr;
+ 292   1          cnt++;
+ 293   1      
+ 294   1          memcpy(&MfComData.MfData[cnt], _data, 4);
+ 295   1          cnt = cnt + 4;
+ 296   1      
+ 297   1          MfComData.MfLength = cnt;
+ 298   1      
+ 299   1          status = ISO15693_Transceive( pi );
+ 300   1      
+ 301   1          if (status != MI_OK)
+ 302   1          {    return status;   }
+C51 COMPILER V9.00   ISO15693                                                              06/07/2017 15:27:12 PAGE 6   
+
+ 303   1          else if (!(flags & 0x40)) 
+ 304   1          {
+ 305   2              if (MfComData.MfLength != 0x08)
+ 306   2              {    status = MI_BITCOUNTERR;    }
+ 307   2              return status;
+ 308   2          }
+ 309   1          else
+ 310   1          {
+ 311   2              DelayMs(10);
+ 312   2              pi = &MfComData;
+ 313   2          
+ 314   2              SetBitMask(RegCoderControl, 0x80);
+ 315   2              
+ 316   2              MfComData.MfCommand = PCD_TRANSCEIVE;
+ 317   2              MfComData.MfLength = 0;
+ 318   2      
+ 319   2              status = ISO15693_Transceive( pi );
+ 320   2      
+ 321   2              if ((status == MI_OK) && (MfComData.MfLength != 0x08))
+ 322   2              {    status = MI_BITCOUNTERR;    }
+ 323   2              return status;
+ 324   2           }
+ 325   1      }
+ 326          
+ 327          /////////////////////////////////////////////////////////////////////
+ 328          //ISO15693_Lock_Block 
+ 329          /////////////////////////////////////////////////////////////////////
+ 330          char ISO15693_Lock_Block (unsigned char flags, 
+ 331                                    unsigned char *uid, 
+ 332                                    unsigned char blnr)
+ 333          {
+ 334   1          unsigned char cnt, status;
+ 335   1          struct TranSciveBuffer MfComData;
+ 336   1          struct TranSciveBuffer *pi;
+ 337   1          pi = &MfComData;
+ 338   1      
+ 339   1          ClearBitMask(RegCoderControl, 0x80);
+ 340   1          
+ 341   1          if (flags & 0x40)
+ 342   1          {    MfComData.MfCommand = PCD_TRANSMIT;   }
+ 343   1          else
+ 344   1          {    MfComData.MfCommand = PCD_TRANSCEIVE;   }
+ 345   1          MfComData.MfData[0] = flags;
+ 346   1          MfComData.MfData[1] = ISO15693_LOCK_BLOCK;
+ 347   1          cnt = 2;
+ 348   1          if (flags & 0x20) // flags & 0x20 - Adresflag request flags & 
+ 349   1                                // 0x10 - Selectflag request
+ 350   1          {
+ 351   2               memcpy (&MfComData.MfData[2], uid, 8);
+ 352   2               cnt = cnt + 8;
+ 353   2          }
+ 354   1          MfComData.MfData[cnt] = blnr;
+ 355   1      
+ 356   1          MfComData.MfLength = cnt + 1;
+ 357   1      
+ 358   1          status = ISO15693_Transceive( pi );
+ 359   1              
+ 360   1          if (status != MI_OK)
+ 361   1          {    return status;   }
+ 362   1          else if (!(flags & 0x40)) 
+ 363   1          {
+ 364   2              if (MfComData.MfLength != 0x08)
+C51 COMPILER V9.00   ISO15693                                                              06/07/2017 15:27:12 PAGE 7   
+
+ 365   2              {    status = MI_BITCOUNTERR;    }
+ 366   2              return status;
+ 367   2          }
+ 368   1          else
+ 369   1          {
+ 370   2              DelayMs(10);
+ 371   2              pi = &MfComData;
+ 372   2          
+ 373   2              SetBitMask(RegCoderControl, 0x80);
+ 374   2              
+ 375   2              MfComData.MfCommand = PCD_TRANSCEIVE;
+ 376   2              MfComData.MfLength = 0;
+ 377   2      
+ 378   2              status = ISO15693_Transceive( pi );
+ 379   2      
+ 380   2              if ( (status == MI_OK) && (MfComData.MfLength != 0x08) )
+ 381   2              {    status = MI_BITCOUNTERR;    }
+ 382   2              return status;
+ 383   2           }
+ 384   1      }
+ 385          
+ 386          /////////////////////////////////////////////////////////////////////
+ 387          //ISO15693_Write_AFI
+ 388          /////////////////////////////////////////////////////////////////////
+ 389          char ISO15693_Write_AFI (unsigned char flags, 
+ 390                                   unsigned char *uid, 
+ 391                                   unsigned char AFI)
+ 392          {
+ 393   1          unsigned char cnt, status;
+ 394   1          struct TranSciveBuffer MfComData;
+ 395   1          struct TranSciveBuffer *pi;
+ 396   1          pi = &MfComData;
+ 397   1          
+ 398   1          ClearBitMask(RegCoderControl, 0x80);
+ 399   1      
+ 400   1          if (flags & 0x40)
+ 401   1          {    MfComData.MfCommand = PCD_TRANSMIT;   }
+ 402   1          else
+ 403   1          {    MfComData.MfCommand = PCD_TRANSCEIVE;   }
+ 404   1          MfComData.MfData[0] = flags;
+ 405   1          MfComData.MfData[1] = ISO15693_WRITE_AFI;
+ 406   1          cnt = 2;
+ 407   1          if (flags & 0x20) // flags & 0x20 - Adresflag request flags & 
+ 408   1                                // 0x10 - Selectflag request
+ 409   1          {
+ 410   2               memcpy (&MfComData.MfData[2], uid, 8);
+ 411   2               cnt = cnt + 8;
+ 412   2          }
+ 413   1          MfComData.MfData[cnt] = AFI;
+ 414   1      
+ 415   1          MfComData.MfLength = cnt + 1;
+ 416   1      
+ 417   1          status = ISO15693_Transceive( pi );
+ 418   1              
+ 419   1          if (status != MI_OK)
+ 420   1          {    return status;   }
+ 421   1          else if (!(flags & 0x40)) 
+ 422   1          {
+ 423   2              if (MfComData.MfLength != 0x08)
+ 424   2              {    status = MI_BITCOUNTERR;    }
+ 425   2              return status;
+ 426   2          }
+C51 COMPILER V9.00   ISO15693                                                              06/07/2017 15:27:12 PAGE 8   
+
+ 427   1          else
+ 428   1          {
+ 429   2              DelayMs(10);
+ 430   2              pi = &MfComData;
+ 431   2          
+ 432   2              SetBitMask(RegCoderControl, 0x80);
+ 433   2              
+ 434   2              MfComData.MfCommand = PCD_TRANSCEIVE;
+ 435   2              MfComData.MfLength = 0;
+ 436   2      
+ 437   2              status = ISO15693_Transceive( pi );
+ 438   2      
+ 439   2              if ( (status == MI_OK) && (MfComData.MfLength != 0x08) )
+ 440   2              {    status = MI_BITCOUNTERR;    }
+ 441   2              return status;
+ 442   2           }
+ 443   1      }
+ 444          
+ 445          /////////////////////////////////////////////////////////////////////
+ 446          //ISO15693_Lock_AFI 
+ 447          /////////////////////////////////////////////////////////////////////
+ 448          char ISO15693_Lock_AFI (unsigned char flags, unsigned char *uid) 
+ 449          {
+ 450   1          unsigned char idata cnt, status;
+ 451   1          struct TranSciveBuffer MfComData;
+ 452   1          struct TranSciveBuffer *pi;
+ 453   1          pi = &MfComData;
+ 454   1          
+ 455   1          ClearBitMask(RegCoderControl, 0x80); 
+ 456   1           
+ 457   1          if (flags & 0x40)
+ 458   1          {    MfComData.MfCommand = PCD_TRANSMIT;   }
+ 459   1          else
+ 460   1          {    MfComData.MfCommand = PCD_TRANSCEIVE;   }
+ 461   1          MfComData.MfData[0] = flags;
+ 462   1          MfComData.MfData[1] = ISO15693_LOCK_AFI;
+ 463   1          cnt = 2;
+ 464   1          if (flags & 0x20) // flags & 0x20 - Adresflag request flags & 
+ 465   1                                // 0x10 - Selectflag request
+ 466   1          {
+ 467   2               memcpy (&MfComData.MfData[2], uid, 8);
+ 468   2               cnt = cnt + 8;
+ 469   2          }
+ 470   1          MfComData.MfLength = cnt;
+ 471   1      
+ 472   1          status = ISO15693_Transceive( pi );
+ 473   1              
+ 474   1          if (status != MI_OK)
+ 475   1          {    return status;   }
+ 476   1          else if (!(flags & 0x40)) 
+ 477   1          {
+ 478   2               if (MfComData.MfLength != 0x08)
+ 479   2               {    status = MI_BITCOUNTERR;    }
+ 480   2               return status;
+ 481   2          }
+ 482   1          else
+ 483   1          {
+ 484   2               DelayMs(10);
+ 485   2               pi = &MfComData;
+ 486   2          
+ 487   2               SetBitMask(RegCoderControl, 0x80);
+ 488   2              
+C51 COMPILER V9.00   ISO15693                                                              06/07/2017 15:27:12 PAGE 9   
+
+ 489   2               MfComData.MfCommand = PCD_TRANSCEIVE;
+ 490   2               MfComData.MfLength = 0;
+ 491   2      
+ 492   2               status = ISO15693_Transceive( pi );
+ 493   2      
+ 494   2               if ( (status == MI_OK) && (MfComData.MfLength != 0x08) )
+ 495   2               {    status = MI_BITCOUNTERR;    }
+ 496   2               return status;
+ 497   2           }
+ 498   1      }
+ 499          
+ 500          /////////////////////////////////////////////////////////////////////
+ 501          //ISO15693_Write_DSFID
+ 502          /////////////////////////////////////////////////////////////////////
+ 503          char ISO15693_Write_DSFID (unsigned char flags, 
+ 504                                     unsigned char *uid, 
+ 505                                     unsigned char DSFID)
+ 506          {
+ 507   1          unsigned char cnt, status;
+ 508   1          struct TranSciveBuffer MfComData;
+ 509   1          struct TranSciveBuffer *pi;
+ 510   1          pi = &MfComData;
+ 511   1          
+ 512   1          ClearBitMask(RegCoderControl, 0x80);
+ 513   1      
+ 514   1          if (flags & 0x40)
+ 515   1          {    MfComData.MfCommand = PCD_TRANSMIT;   }
+ 516   1          else
+ 517   1          {    MfComData.MfCommand = PCD_TRANSCEIVE;   }
+ 518   1          MfComData.MfData[0] = flags;
+ 519   1          MfComData.MfData[1] = ISO15693_WRITE_DSFID;
+ 520   1          cnt = 2;
+ 521   1          if (flags & 0x20) // flags & 0x20 - Adresflag request flags & 
+ 522   1                                // 0x10 - Selectflag request
+ 523   1          {
+ 524   2               memcpy (&MfComData.MfData[2], uid, 8);
+ 525   2               cnt = cnt + 8;
+ 526   2          }
+ 527   1          MfComData.MfData[cnt] = DSFID;
+ 528   1      
+ 529   1          MfComData.MfLength = cnt + 1;
+ 530   1      
+ 531   1          status = ISO15693_Transceive( pi );
+ 532   1              
+ 533   1          if (status != MI_OK)
+ 534   1          {    return status;   }
+ 535   1          else if (!(flags & 0x40)) 
+ 536   1          {
+ 537   2              if (MfComData.MfLength != 0x08)
+ 538   2              {    status = MI_BITCOUNTERR;    }
+ 539   2              return status;
+ 540   2          }
+ 541   1          else
+ 542   1          {
+ 543   2              DelayMs(10);
+ 544   2              pi = &MfComData;
+ 545   2          
+ 546   2              SetBitMask(RegCoderControl, 0x80);
+ 547   2              
+ 548   2              MfComData.MfCommand = PCD_TRANSCEIVE;
+ 549   2              MfComData.MfLength = 0;
+ 550   2      
+C51 COMPILER V9.00   ISO15693                                                              06/07/2017 15:27:12 PAGE 10  
+
+ 551   2              status = ISO15693_Transceive( pi );
+ 552   2      
+ 553   2              if ( (status == MI_OK) && (MfComData.MfLength != 0x08) )
+ 554   2              {    status = MI_BITCOUNTERR;    }
+ 555   2              return status;
+ 556   2           }
+ 557   1      }
+ 558          
+ 559          /////////////////////////////////////////////////////////////////////
+ 560          //ISO15693_Lock_DSFID 
+ 561          /////////////////////////////////////////////////////////////////////
+ 562          char ISO15693_Lock_DSFID (unsigned char flags, unsigned char *uid)
+ 563          {
+ 564   1          unsigned char cnt, status;
+ 565   1          struct TranSciveBuffer MfComData;
+ 566   1          struct TranSciveBuffer *pi;
+ 567   1          pi = &MfComData;
+ 568   1            
+ 569   1          ClearBitMask(RegCoderControl, 0x80);
+ 570   1        
+ 571   1          if (flags & 0x40)
+ 572   1          {    MfComData.MfCommand = PCD_TRANSMIT;   }
+ 573   1          else
+ 574   1          {    MfComData.MfCommand = PCD_TRANSCEIVE;   }
+ 575   1          MfComData.MfData[0] = flags;
+ 576   1          MfComData.MfData[1] = ISO15693_LOCK_DSFID;
+ 577   1          cnt = 2;
+ 578   1          if (flags & 0x20) // flags & 0x20 - Adresflag request flags & 
+ 579   1                        // 0x10 - Selectflag request
+ 580   1          {
+ 581   2              memcpy (&MfComData.MfData[2], uid, 8);
+ 582   2              cnt = cnt + 8;
+ 583   2          }
+ 584   1          MfComData.MfLength = cnt;
+ 585   1      
+ 586   1          status = ISO15693_Transceive( pi );
+ 587   1              
+ 588   1          if (status != MI_OK)
+ 589   1          {    return status;   }
+ 590   1          else if (!(flags & 0x40)) 
+ 591   1          {
+ 592   2               if (MfComData.MfLength != 0x08)
+ 593   2               {    status = MI_BITCOUNTERR;    }
+ 594   2               return status;
+ 595   2          }
+ 596   1          else
+ 597   1          {
+ 598   2               DelayMs(10);
+ 599   2               pi = &MfComData;
+ 600   2          
+ 601   2               SetBitMask(RegCoderControl, 0x80);
+ 602   2              
+ 603   2               MfComData.MfCommand = PCD_TRANSCEIVE;
+ 604   2               MfComData.MfLength = 0;
+ 605   2      
+ 606   2               status = ISO15693_Transceive( pi );
+ 607   2      
+ 608   2               if ( (status == MI_OK) && (MfComData.MfLength != 0x08) )
+ 609   2               {    status = MI_BITCOUNTERR;    }
+ 610   2               return status;
+ 611   2           }
+ 612   1      }
+C51 COMPILER V9.00   ISO15693                                                              06/07/2017 15:27:12 PAGE 11  
+
+ 613          
+ 614          /////////////////////////////////////////////////////////////////////
+ 615          //ISO15693_Get_System_Information 
+ 616          /////////////////////////////////////////////////////////////////////
+ 617          char ISO15693_Get_System_Information (unsigned char flags, 
+ 618                                                unsigned char *uid, 
+ 619                                                unsigned char *resplen, 
+ 620                                                unsigned char *resp)
+ 621          {
+ 622   1          unsigned char cnt, status;
+ 623   1          struct TranSciveBuffer MfComData;
+ 624   1          struct TranSciveBuffer *pi;
+ 625   1          pi = &MfComData;
+ 626   1           
+ 627   1          ClearBitMask(RegCoderControl, 0x80);   
+ 628   1          MfComData.MfCommand = PCD_TRANSCEIVE;       
+ 629   1          MfComData.MfData[0] = flags;
+ 630   1          MfComData.MfData[1] = ISO15693_GET_SYSTEM_INFO;
+ 631   1          cnt = 2;
+ 632   1          if (flags & 0x20) // flags & 0x20 - Adresflag request flags & 
+ 633   1                                // 0x10 - Selectflag request
+ 634   1          {
+ 635   2              memcpy(&MfComData.MfData[2], uid, 8);
+ 636   2              cnt = cnt + 8;
+ 637   2          }
+ 638   1      
+ 639   1          MfComData.MfLength = cnt;
+ 640   1      
+ 641   1          status = ISO15693_Transceive( pi );
+ 642   1              
+ 643   1          if (status == MI_OK)
+ 644   1          {
+ 645   2              *resplen = MfComData.MfLength/8-1;
+ 646   2              memcpy(resp, &MfComData.MfData[1], *resplen);
+ 647   2          }
+ 648   1          return status;
+ 649   1      }
+ 650          
+ 651          /////////////////////////////////////////////////////////////////////
+ 652          //ISO15693 Get nultiple Block security status 
+ 653          /////////////////////////////////////////////////////////////////////
+ 654          char ISO15693_Get_Multiple_Block_Security(unsigned char flags, 
+ 655                                                    unsigned char *uid, 
+ 656                                                    unsigned char blnr,
+ 657                                                    unsigned char nbl, 
+ 658                                                    unsigned char *resplen, 
+ 659                                                    unsigned char *resp)
+ 660          {
+ 661   1          unsigned char cnt, status;
+ 662   1          struct TranSciveBuffer MfComData;
+ 663   1          struct TranSciveBuffer *pi;
+ 664   1          pi = &MfComData;
+ 665   1      
+ 666   1          ClearBitMask(RegCoderControl, 0x80);
+ 667   1          if(nbl)
+ 668   1          {   nbl--;   }
+ 669   1          *resplen = 0;
+ 670   1      
+ 671   1          MfComData.MfCommand = PCD_TRANSCEIVE;       
+ 672   1          MfComData.MfData[0] = flags;
+ 673   1          MfComData.MfData[1] = ISO15693_GET_MULTIPLE_BLOCK_SECURITY; 
+ 674   1          cnt = 2;
+C51 COMPILER V9.00   ISO15693                                                              06/07/2017 15:27:12 PAGE 12  
+
+ 675   1          if (flags & 0x20) // flags & 0x20 - Adresflag request flags & 
+ 676   1                                // 0x10 - Selectflag request
+ 677   1          {
+ 678   2              memcpy (&MfComData.MfData[2], uid, 8);
+ 679   2              cnt = cnt + 8;
+ 680   2          }
+ 681   1          MfComData.MfData[cnt] = blnr;
+ 682   1          cnt++;
+ 683   1          MfComData.MfData[cnt] = nbl;
+ 684   1      
+ 685   1          MfComData.MfLength = cnt + 1;
+ 686   1      
+ 687   1          status = ISO15693_Transceive( pi );
+ 688   1              
+ 689   1          if (status == MI_OK)
+ 690   1          {
+ 691   2              *resplen = MfComData.MfLength/8-1;
+ 692   2              memcpy(resp, &MfComData.MfData[1], *resplen);
+ 693   2          }
+ 694   1          return status;
+ 695   1      }
+ 696          
+ 697          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   2314    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    1091
+   IDATA SIZE       =   ----      10
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

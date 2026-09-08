@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+embedded/out/
+.DS_Store

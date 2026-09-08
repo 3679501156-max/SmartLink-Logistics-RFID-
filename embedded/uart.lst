@@ -1,0 +1,82 @@
+C51 COMPILER V9.00   UART                                                                  06/07/2017 15:27:12 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE UART
+OBJECT MODULE PLACED IN .\out\uart.obj
+COMPILER INVOKED BY: D:\Keil C51\C51\BIN\C51.EXE src\uart.c BROWSE INCDIR(.\inc) DEBUG OBJECTEXTEND PRINT(.\uart.lst) OB
+                    -JECT(.\out\uart.obj)
+
+line level    source
+
+   1          #include <STC12C5A60S2.h>
+   2          #include "uart1.h"
+   3          
+   4          
+   5          
+   6          bit     B_TI;                               //¶¨ÒåB_TIÎªbitÀàÐÍ
+   7          //extern unsigned char xdata RXBuffer1[128];
+   8          //unsigned char idata RXBuffer1[128];
+   9          unsigned int RXCounter1 = 0;
+  10          unsigned char rev_finish_flag1 = 0;
+  11          extern unsigned char idata g_cReceBuf[64];
+  12          
+  13          void Uart1_IRQHandler(void) interrupt   4                                         //ÖÐ¶Ï½ÓÊÕº¯Êý ÖÐ¶ÏºÅÎª4    P188
+  14          {
+  15   1              if(RI)                                                                                    //ÅÐ¶Ï½ÓÊÕµÄÊý¾ÝÊÇ·ñ½ÓÊÕÍê£¬µ±½ÓÊÕµ½µÚ8Î»Ê± ½ÓÊÕ½áÊø  RI»áÖÃ1   P265
+  16   1              {
+  17   2                      RI = 0;                                                                           //½ÓÊÕÖÐ¶ÏÊ¹ÄÜÎ»Çå0
+  18   2                      g_cReceBuf[RXCounter1++] = SBUF;                                  //½«´®¿Ú»º³åÆ÷SBUFµÄÊý¾Ý·Åµ½Êý¾Ý½ÓÊÕ»º³åÆ÷RX0_Buffer[]ÖÐ
+  19   2                      rev_finish_flag1 = 1;                                                                     //½«±êÖ¾Î»ÖÃ1·½±ãÖ÷º¯ÊýÅÐ¶Ï
+  20   2              }
+  21   1      
+  22   1              if(TI)                                                                                    //ÅÐ¶Ï·¢ËÍµÄÊý¾ÝÊÇ·ñ·¢ËÍÍê£¬µ±·¢ËÍµ½µÚ8Î»Ê± ·¢ËÍ½áÊø  TI»áÖÃ1    P265
+  23   1              {
+  24   2                      TI = 0;                                                                           //½«·¢ËÍ½áÊø±êÖ¾Î» TIÇå0
+  25   2                      B_TI = 1;                                                                         //½«B_TI ÖÃ1 ·½±ãÉÏÃæµÄUart1_TxByte º¯ÊýÅÐ¶Ï
+  26   2              }
+  27   1      }
+  28          
+  29          
+  30          //void Uart1_TxString(unsigned char *puts)                         
+  31          //{
+  32          //    for(; *puts != 0; puts++)
+  33          //      {
+  34          //        Uart1_TxByte(*puts);                                             //ÒÔÖ¸ÕëµÄÐÎÊ½½«×Ö·û´®·Ö½âÎªµ¥¸ö×Ö·û£¬µ÷ÓÃÉÏÃæµÄµ¥¸ö×Ö·û·¢ËÍº¯Êý·¢Ë
+             -Í
+  35          //      }
+  36          //}
+  37          
+  38          
+  39          //void Uart1_TxByte(unsigned char dat)                             //´®¿Ú1·¢ËÍµ¥¸ö×Ö·ûº¯Êý
+  40          //{
+  41          //    B_TI = 0;                                                                            //½«B_TIÖÃ0
+  42          //      SBUF = dat;                                                                                //½«·¢ËÍµÄÊý¾ÝÐ´ÈëSBUF»º³åÆ÷ÖÐ
+  43          //      while(!B_TI);                                                                      //µÈ´ý·¢ËÍ »º³åÆ÷·¢ËÍÍêÊý¾Ý
+  44          //      B_TI = 0;                                                                                  //½«B_TIÖÃÎ»0
+  45          //}
+  46          
+  47          //void Uart1_Senddata(unsigned char *DATA,unsigned char length)
+  48          //{
+  49          //      unsigned char i;
+  50          //      for(i=0;i<length;i++)
+  51          //              Uart1_TxByte(DATA[i]);
+  52          //}
+  53          
+C51 COMPILER V9.00   UART                                                                  06/07/2017 15:27:12 PAGE 2   
+
+  54          
+  55          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     45    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      3    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
